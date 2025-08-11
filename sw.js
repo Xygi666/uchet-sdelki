@@ -7,47 +7,19 @@ const urlsToCache = [
   '/uchet-sdelki/icon-512.png'
 ];
 
-// Установка Service Worker и кэширование файлов
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-      .then(() => self.skipWaiting())
-  );
+self.addEventListener('install', e=>{
+  e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(urlsToCache)).then(()=>self.skipWaiting()));
 });
-
-// Активация SW и удаление старого кэша
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(names =>
-      Promise.all(
-        names.filter(name => name !== CACHE_NAME)
-             .map(name => caches.delete(name))
-      )
-    ).then(() => self.clients.claim())
-  );
+self.addEventListener('activate', e=>{
+  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))) .then(()=>self.clients.claim()));
 });
-
-// Обработка запросов
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(event.request).then(response => {
-      if (response) return response;
-      return fetch(event.request).then(networkResponse => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
-        }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseToCache);
-        });
-        return networkResponse;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/uchet-sdelki/index.html');
-        }
-      });
-    })
-  );
+self.addEventListener('fetch', e=>{
+  if(e.request.method!=='GET') return;
+  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{
+    if(resp && resp.status===200 && resp.type==='basic'){
+      let respClone = resp.clone();
+      caches.open(CACHE_NAME).then(c=>c.put(e.request, respClone));
+    }
+    return resp;
+  }).catch(()=> e.request.mode==='navigate' ? caches.match('/uchet-sdelki/index.html') : undefined )));
 });

@@ -1,37 +1,14 @@
 {
   "name": "Учет сделки",
   "short_name": "Учет",
-  "description": "Учёт производственных сделок с автоподсчетом и синхронизацией через AirTable",
-  "lang": "ru",
   "start_url": "/uchet-sdelki/",
   "scope": "/uchet-sdelki/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f7f7f9",
   "theme_color": "#2f6feb",
-  "categories": ["business", "productivity", "finance"],
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }

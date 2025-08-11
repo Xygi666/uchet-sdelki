@@ -1,32 +1,28 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Учет сделки</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#2f6feb">
 <style>
-/* оформление как в предыдущей версии */
-body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f7f7f9; color:#1c1c1c;}
+body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f7f7f9;}
 header { padding:16px; background:#2f6feb; color:#fff; display:flex; justify-content:space-between; align-items:center;}
 header h1 { font-size:18px; margin:0;}
-header button { background:rgba(255,255,255,.15); color:#fff; border:0; padding:8px 12px; border-radius:8px;}
+header button { background:rgba(255,255,255,.15);border:0;padding:8px 12px;border-radius:8px;color:#fff;}
 main { padding:16px; max-width:720px; margin:0 auto;}
-.card{ background:#fff; border-radius:12px; padding:16px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:16px;}
+.card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:16px;}
 .row{ display:flex; gap:12px; flex-wrap:wrap;}
-label{ display:block; font-size:13px; color:#444; margin-bottom:6px;}
-input,select{ width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:8px; font-size:16px;}
-button.primary{ background:#2f6feb; color:#fff; border:0; padding:12px 16px; border-radius:10px; font-weight:600;}
-button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px 14px; border-radius:10px;}
-.kpi{ font-size:14px; color:#666;}
-.kpi strong{ font-size:24px; color:#111; display:block; margin-top:4px;}
+input,select{ width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;}
+button.primary{ background:#2f6feb; color:#fff; border:0; padding:12px; border-radius:10px; }
+button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px; border-radius:10px;}
 .list{ width:100%; border-collapse:collapse;}
-.list th,.list td{ padding:8px 6px; border-bottom:1px solid #eee; text-align:left; font-size:14px;}
-.muted{ color:#777; font-size:13px;}
+.list th,.list td{ padding:8px 6px; border-bottom:1px solid #eee; text-align:left;}
 .right{text-align:right;}
-.danger{ color:#c62828;}
 .hidden{ display:none !important;}
+.muted{color:#777; font-size:13px;}
+.danger{color:#c62828; cursor:pointer;}
 </style>
 </head>
 <body>
@@ -36,209 +32,175 @@ button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px 14px
 </header>
 <main>
   <section class="card">
-    <div class="kpi">
-      Заработано в этом месяце
-      <strong id="monthTotal">0 ₽</strong>
-      <div class="muted" id="monthLabel"></div>
-    </div>
+    <div class="muted" id="monthLabel"></div>
+    <strong id="monthTotal">0 ₽</strong>
   </section>
   <section class="card">
     <h3>Новая запись</h3>
     <div class="row">
       <div style="flex:1"><label>Тип продукции</label><select id="productSelect"></select></div>
-      <div style="flex:1"><label>Количество</label><input id="qtyInput" type="number" min="0" step="1"/></div>
+      <div style="flex:1"><label>Количество</label><input id="qtyInput" type="number" min="0"></div>
     </div>
     <div class="row" style="margin-top:12px">
       <button class="primary" onclick="saveEntry()">Сохранить</button>
-      <button class="secondary" onclick="syncAll()">Синхронизировать</button>
+      <button class="secondary" onclick="syncSheets()">Синхронизировать</button>
     </div>
     <div class="muted" id="lastStatus"></div>
   </section>
   <section class="card">
-    <h3>Записи текущего месяца</h3>
+    <h3>Записи этого месяца</h3>
     <table class="list">
-      <thead><tr><th>Дата</th><th>Продукт</th><th class="right">Кол-во</th><th class="right">Цена</th><th class="right">Сумма</th><th></th></tr></thead>
+      <thead>
+        <tr><th>Дата</th><th>Продукт</th><th class="right">Кол-во</th><th class="right">Цена</th><th class="right">Сумма</th><th></th></tr>
+      </thead>
       <tbody id="entriesBody"></tbody>
-      <tfoot><tr><th colspan="4" class="right">Итого</th><th class="right" id="tableTotal">0 ₽</th><th></th></tr></tfoot>
+      <tfoot><tr><th colspan="4" class="right">ИТОГО</th><th class="right" id="tableTotal">0 ₽</th><th></th></tr></tfoot>
     </table>
   </section>
-  <section class="card hidden" id="settingsCard">
-    <h3>Настройки AirTable</h3>
-    <label>API Token</label><input id="airtableKey" placeholder="patXXXXXXXXXXXXXX">
-    <label>Base ID</label><input id="airtableBase" placeholder="appXXXXXXXXXXXXXX">
-    <label>Таблица Products</label><input id="productsTable" value="Products">
-    <label>Таблица Production</label><input id="productionTable" value="Production">
-    <button onclick="testAirtableConnection()" class="secondary">Проверить подключение</button>
-    <span id="testStatus" style="margin-left:10px; font-weight:600;"></span>
+  <section id="settingsCard" class="card hidden">
+    <h3>Настройки</h3>
+    <label>Apps Script URL</label>
+    <input id="appsScriptUrl" placeholder="https://script.google.com/macros/s/XXX/exec">
+    <label>ID Google Таблицы</label>
+    <input id="sheetId">
+    <label>Лист Production</label>
+    <input id="productionSheet" value="Production">
     <h4 style="margin-top:20px;">Типы продукции</h4>
     <div class="row">
-      <div style="flex:1"><input id="prodName" placeholder="Название продукции"></div>
-      <div style="flex:1"><input id="prodPrice" type="number" placeholder="Цена ₽"></div>
-      <div><button class="primary" onclick="addProduct()">Добавить</button></div>
+      <input id="prodName" placeholder="Название">
+      <input id="prodPrice" type="number" placeholder="Цена ₽">
+      <button class="primary" onclick="addProduct()">Добавить</button>
     </div>
-    <ul id="productsList" style="margin-top:10px; padding-left:20px; font-size:14px;"></ul>
+    <table class="list" style="margin-top:10px;">
+      <thead><tr><th>Название</th><th class="right">Цена</th><th></th></tr></thead>
+      <tbody id="productsBody"></tbody>
+    </table>
   </section>
 </main>
 
 <script>
-const KEYS = {products:'ppx_products', entries:'ppx_entries', settings:'ppx_airtable_settings'};
-let products = JSON.parse(localStorage.getItem(KEYS.products)||'[]');
-let entries = JSON.parse(localStorage.getItem(KEYS.entries)||'[]');
-let settings = JSON.parse(localStorage.getItem(KEYS.settings)||'{}');
-const fmt = n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n||0);
-const todayISO = ()=>{let d=new Date(),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;}
+const KEYS={products:'gs_products',entries:'gs_entries',settings:'gs_settings'};
+let products=JSON.parse(localStorage.getItem(KEYS.products)||'[]');
+let entries=JSON.parse(localStorage.getItem(KEYS.entries)||'[]');
+let settings=JSON.parse(localStorage.getItem(KEYS.settings)||'{}');
+const fmt=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n);
+const todayISO=()=>new Date().toISOString().split('T')[0];
 
-function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
-function airtableURL(table){return `https://api.airtable.com/v0/${settings.airtableBase}/${encodeURIComponent(table)}`;}
-function airtableHeaders(){return {Authorization:`Bearer ${settings.airtableKey}`,'Content-Type':'application/json'};}
-
-// === Продукты ===
-async function fetchProducts(){
-  if(!settings.airtableKey||!settings.airtableBase) {renderProducts(); return;}
-  try {
-    const res = await fetch(airtableURL(settings.productsTable||'Products'),{headers: airtableHeaders()});
-    if(!res.ok) throw await res.text();
-    const data = await res.json();
-    products = data.records.map(r=>({id:r.id,name:r.fields.Name,price:r.fields.Price,synced:true}));
-    save(KEYS.products,products);
-  } catch(e){
-    document.getElementById('lastStatus').textContent = 'Не удалось обновить продукты из Airtable, использую локальные';
-  }
-  renderProducts();
-  renderProductsList();
-}
-
-async function addProduct(){
-  const name=document.getElementById('prodName').value.trim();
-  const price=parseFloat(document.getElementById('prodPrice').value)||0;
-  if(!name) return;
-  const prod={name,price,id:'local-'+crypto.randomUUID(),synced:false};
-  products.push(prod);
-  save(KEYS.products,products);
-  renderProducts();
-  renderProductsList();
-  document.getElementById('prodName').value='';
-  document.getElementById('prodPrice').value='';
-  try {
-    const res=await fetch(airtableURL(settings.productsTable||'Products'),{
-      method:'POST',headers:airtableHeaders(),body:JSON.stringify({fields:{Name:name,Price:price}})
-    });
-    if(!res.ok) throw await res.text();
-    const data=await res.json();
-    prod.id=data.id; prod.synced=true;
-    save(KEYS.products,products);
-    renderProducts();
-    renderProductsList();
-  } catch(e){
-    document.getElementById('lastStatus').textContent='Не удалось синхронизировать продукт, сохранён локально';
-  }
+function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
+function isThisMonth(date){
+  const d=new Date(date), now=new Date();
+  return d.getMonth()==now.getMonth() && d.getFullYear()==now.getFullYear();
 }
 
 function renderProducts(){
-  const sel=document.getElementById('productSelect');
-  sel.innerHTML='';
+  const sel=document.getElementById('productSelect'); sel.innerHTML='';
   products.forEach(p=>{
-    const o=document.createElement('option');
-    o.value=p.id; o.textContent=`${p.name} — ${fmt(p.price)}`;
-    sel.appendChild(o);
+    let opt=document.createElement('option');
+    opt.value=p.id; opt.textContent=`${p.name} — ${fmt(p.price)}`;
+    sel.appendChild(opt);
   });
-}
-function renderProductsList(){
-  const list=document.getElementById('productsList');
-  list.innerHTML='';
+  const tb=document.getElementById('productsBody'); tb.innerHTML='';
   products.forEach(p=>{
-    let li=document.createElement('li');
-    li.textContent=`${p.name} — ${fmt(p.price)}${p.synced?'':' (локально)'}`;
-    list.appendChild(li);
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${p.name}</td><td class="right">${fmt(p.price)}</td>
+                  <td><span class="danger" onclick="delProduct('${p.id}')">×</span></td>`;
+    tb.appendChild(tr);
   });
 }
 
-// === Записи ===
 function renderEntries(){
-  let body=document.getElementById('entriesBody'); body.innerHTML='';
-  let total=0; const now=new Date();
-  entries.filter(e=>{
-    let d=new Date(e.date); return d.getMonth()==now.getMonth() && d.getFullYear()==now.getFullYear();
-  }).forEach(e=>{
+  let body=document.getElementById('entriesBody');
+  body.innerHTML=''; let total=0;
+  entries.filter(e=>isThisMonth(e.date)).forEach(e=>{
     total+=e.total;
     let tr=document.createElement('tr');
-    tr.innerHTML=`<td>${e.date}</td><td>${e.name}</td><td class="right">${e.qty}</td><td class="right">${fmt(e.price)}</td><td class="right">${fmt(e.total)}</td><td><button onclick="delEntry('${e.id}')">×</button></td>`;
+    tr.innerHTML=`<td>${e.date}</td><td>${e.name}</td><td class="right">${e.qty}</td>
+                  <td class="right">${fmt(e.price)}</td><td class="right">${fmt(e.total)}</td>
+                  <td><span class="danger" onclick="delEntry('${e.id}')">×</span></td>`;
     body.appendChild(tr);
   });
   document.getElementById('tableTotal').textContent=fmt(total);
   document.getElementById('monthTotal').textContent=fmt(total);
-  document.getElementById('monthLabel').textContent=`За ${now.toLocaleString('ru-RU',{month:'long',year:'numeric'})}`;
+  document.getElementById('monthLabel').textContent=`${new Date().toLocaleString('ru-RU',{month:'long', year:'numeric'})}`;
 }
 
-async function saveEntry(){
+function addProduct(){
+  let name=document.getElementById('prodName').value.trim();
+  let price=parseFloat(document.getElementById('prodPrice').value)||0;
+  if(!name) return;
+  products.push({id:crypto.randomUUID(), name, price});
+  save(KEYS.products,products);
+  renderProducts();
+  document.getElementById('prodName').value='';
+  document.getElementById('prodPrice').value='';
+}
+
+function delProduct(id){
+  products=products.filter(p=>p.id!==id);
+  save(KEYS.products,products);
+  renderProducts();
+}
+
+function saveEntry(){
   let pid=document.getElementById('productSelect').value;
-  let qty=parseInt(document.getElementById('qtyInput').value)||0;
+  let qty=parseFloat(document.getElementById('qtyInput').value)||0;
   if(!pid||qty<=0) return;
-  let p=products.find(x=>x.id==pid);
-  let total=p.price*qty;
-  let e={id:crypto.randomUUID(),date:todayISO(),productId:p.id,name:p.name,price:p.price,qty,total,synced:false};
-  entries.push(e); save(KEYS.entries,entries); renderEntries();
+  let prod=products.find(p=>p.id==pid);
+  let total=prod.price*qty;
+  let entry={id:crypto.randomUUID(), date:todayISO(), productId:pid, name:prod.name, price:prod.price, qty, total, synced:false};
+  entries.push(entry); save(KEYS.entries,entries);
+  renderEntries();
   document.getElementById('qtyInput').value='';
-  try {
-    const res=await fetch(airtableURL(settings.productionTable||'Production'),{
-      method:'POST',headers:airtableHeaders(),
-      body:JSON.stringify({fields:{Date:e.date,Product:[p.id],Quantity:e.qty,Price:e.price,Total:e.total}})
-    });
-    if(!res.ok) throw await res.text();
-    e.synced=true; save(KEYS.entries,entries);
-    document.getElementById('lastStatus').textContent='Сохранено и синхронизировано';
-  } catch(err){
-    document.getElementById('lastStatus').textContent='Сохранено локально, синхронизируйте позже';
-  }
+  document.getElementById('lastStatus').textContent='Сохранено локально';
 }
 
-function delEntry(id){entries=entries.filter(x=>x.id!==id);save(KEYS.entries,entries);renderEntries();}
+function delEntry(id){
+  entries=entries.filter(e=>e.id!==id);
+  save(KEYS.entries,entries); renderEntries();
+}
 
-// === Синхронизация ===
-async function syncAll(){
-  for(let p of products.filter(p=>!p.synced)){
-    try{
-      const res=await fetch(airtableURL(settings.productsTable||'Products'),{
-        method:'POST',headers:airtableHeaders(),body:JSON.stringify({fields:{Name:p.name,Price:p.price}})
-      });
-      if(res.ok){let d=await res.json(); p.id=d.id; p.synced=true; save(KEYS.products,products);}
-    }catch{}
-  }
-  for(let e of entries.filter(e=>!e.synced)){
-    try{
-      const res=await fetch(airtableURL(settings.productionTable||'Production'),{
-        method:'POST',headers:airtableHeaders(),
-        body:JSON.stringify({fields:{Date:e.date,Product:[e.productId],Quantity:e.qty,Price:e.price,Total:e.total}})
-      });
-      if(res.ok){e.synced=true; save(KEYS.entries,entries);}
-    }catch{}
-  }
-  renderProductsList(); renderEntries();
+function syncSheets(){
+  const unsent=entries.filter(e=>!e.synced);
+  if(!unsent.length) {document.getElementById('lastStatus').textContent='Нет данных для синхронизации'; return;}
+  if(!settings.appsScriptUrl||!settings.sheetId){alert('Укажите настройки Google Script'); return;}
+  fetch(settings.appsScriptUrl,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      type:'appendProduction',
+      spreadsheetId:settings.sheetId,
+      sheetName:settings.productionSheet||'Production',
+      rows:unsent.map(e=>[new Date().toISOString(),e.date,e.productId,e.name,e.price,e.qty,e.total])
+    })
+  }).then(r=>r.json()).then(d=>{
+    if(d.success){
+      unsent.forEach(e=>e.synced=true);
+      save(KEYS.entries,entries);
+      renderEntries();
+      document.getElementById('lastStatus').textContent='Синхронизировано с Google Таблицей';
+    } else {
+      document.getElementById('lastStatus').textContent='Ошибка синхронизации';
+    }
+  }).catch(()=>{
+    document.getElementById('lastStatus').textContent='Нет соединения с Интернетом';
+  });
 }
 
 function toggleSettings(){
   document.getElementById('settingsCard').classList.toggle('hidden');
-  document.getElementById('airtableKey').value=settings.airtableKey||'';
-  document.getElementById('airtableBase').value=settings.airtableBase||'';
-  document.getElementById('productsTable').value=settings.productsTable||'Products';
-  document.getElementById('productionTable').value=settings.productionTable||'Production';
-  renderProductsList();
+  document.getElementById('appsScriptUrl').value=settings.appsScriptUrl||'';
+  document.getElementById('sheetId').value=settings.sheetId||'';
+  document.getElementById('productionSheet').value=settings.productionSheet||'Production';
 }
 
-document.querySelectorAll('#airtableKey,#airtableBase,#productsTable,#productionTable').forEach(inp=>{
-  inp.addEventListener('change',e=>{settings[e.target.id.replace('airtable','').toLowerCase()]=e.target.value; save(KEYS.settings,settings);});
+['appsScriptUrl','sheetId','productionSheet'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',e=>{
+    settings[e.target.id]=e.target.value; save(KEYS.settings,settings);
+  });
 });
 
-async function testAirtableConnection(){
-  const statusEl=document.getElementById('testStatus');
-  try{
-    const res=await fetch(airtableURL(settings.productsTable||'Products'),{headers:airtableHeaders()});
-    statusEl.textContent = res.ok ? 'ОК' : 'Ошибка';
-  } catch(e){statusEl.textContent='Ошибка';}
-}
-
-// старт
-fetchProducts(); renderProducts(); renderEntries();
+renderProducts();
+renderEntries();
 </script>
 </body>
 </html>

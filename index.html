@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>[DEBUG] Учет сделки</title>
+<title>Учет сделки [DEBUG]</title>
 <style>
 body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f7f7f9;}
 header { padding:16px; background:#2f6feb; color:#fff; display:flex; justify-content:space-between; align-items:center;}
@@ -25,7 +25,7 @@ button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px; bor
 </head>
 <body>
 <header>
-  <h1>[DEBUG] Учет сделки</h1>
+  <h1>Учет сделки [DEBUG]</h1>
   <button onclick="toggleSettings()">Настройки</button>
 </header>
 <main>
@@ -130,14 +130,12 @@ function delProduct(id){
   if(!prod) return;
   if(confirm('Удалить этот продукт?')){
     if(prod.synced && settings.appsScriptUrl && settings.sheetId){
-      console.log("Отправка удаления продукта:", prod.id);
+      console.log("Удаление продукта:", prod.id);
       fetch(settings.appsScriptUrl,{
         method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
-        body:JSON.stringify({
-          type:'deleteProduct',spreadsheetId:settings.sheetId,
-          sheetName:settings.productsSheet||'Products',productId:prod.id
-        })
-      }).then(r=>r.json()).then(d=>console.log("Ответ от GAS (deleteProduct):",d));
+        body:JSON.stringify({type:'deleteProduct',spreadsheetId:settings.sheetId,
+          sheetName:settings.productsSheet||'Products',productId:prod.id})
+      }).then(r=>r.json()).then(d=>console.log("Ответ deleteProduct:",d));
     }
     products=products.filter(p=>p.id!==id); save(KEYS.products,products); renderProducts();
   }
@@ -159,14 +157,12 @@ function delEntry(id){
   if(!entry) return;
   if(confirm('Удалить эту запись?')){
     if(entry.synced && settings.appsScriptUrl && settings.sheetId){
-      console.log("Отправка удаления записи:", entry.id);
+      console.log("Удаление записи:", entry.id);
       fetch(settings.appsScriptUrl,{
         method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
-        body:JSON.stringify({
-          type:'deleteProduction',spreadsheetId:settings.sheetId,
-          sheetName:settings.productionSheet||'Production',entryId:entry.id
-        })
-      }).then(r=>r.json()).then(d=>console.log("Ответ от GAS (deleteProduction):",d));
+        body:JSON.stringify({type:'deleteProduction',spreadsheetId:settings.sheetId,
+          sheetName:settings.productionSheet||'Production',entryId:entry.id})
+      }).then(r=>r.json()).then(d=>console.log("Ответ deleteProduction:",d));
     }
     entries=entries.filter(e=>e.id!==id); save(KEYS.entries,entries); renderEntries();
   }
@@ -180,7 +176,7 @@ function syncProducts(){
     products:unsynced.map(p=>[p.id,p.name,p.price])};
   console.log("Отправляем продукты:", payload);
   fetch(settings.appsScriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(payload)})
-    .then(r=>r.json()).then(data=>{console.log("Ответ (appendProducts):",data);
+    .then(r=>r.json()).then(data=>{console.log("Ответ appendProducts:",data);
       if(data.success){unsynced.forEach(p=>p.synced=true);save(KEYS.products,products);renderProducts();}
     });
 }
@@ -193,7 +189,7 @@ function syncSheets(){
     rows:unsent.map(e=>[e.id,new Date().toISOString(),e.date,e.productId,e.name,e.price,e.qty,e.total])};
   console.log("Отправляем записи:", payload);
   fetch(settings.appsScriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(payload)})
-    .then(r=>r.json()).then(data=>{console.log("Ответ (appendProduction):",data);
+    .then(r=>r.json()).then(data=>{console.log("Ответ appendProduction:",data);
       if(data.success){unsent.forEach(e=>e.synced=true);save(KEYS.entries,entries);renderEntries();}
     });
 }

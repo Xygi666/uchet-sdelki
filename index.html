@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Учет сделки</title>
+<title>[DEBUG] Учет сделки</title>
 <style>
 body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f7f7f9;}
 header { padding:16px; background:#2f6feb; color:#fff; display:flex; justify-content:space-between; align-items:center;}
@@ -25,17 +25,15 @@ button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px; bor
 </head>
 <body>
 <header>
-  <h1>Учет сделки</h1>
+  <h1>[DEBUG] Учет сделки</h1>
   <button onclick="toggleSettings()">Настройки</button>
 </header>
 <main>
-  <!-- KPI -->
   <section class="card">
     <div class="muted" id="monthLabel"></div>
     <strong id="monthTotal">0 ₽</strong>
   </section>
 
-  <!-- Новая запись -->
   <section class="card">
     <h3>Новая запись</h3>
     <div class="row">
@@ -49,7 +47,6 @@ button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px; bor
     <div class="muted" id="lastStatus"></div>
   </section>
 
-  <!-- Таблица записей -->
   <section class="card">
     <h3>Записи этого месяца</h3>
     <table class="list">
@@ -59,13 +56,10 @@ button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px; bor
     </table>
   </section>
 
-  <!-- Настройки -->
   <section id="settingsCard" class="card hidden">
     <h3>Настройки</h3>
-    <label>Apps Script URL</label>
-    <input id="appsScriptUrl">
-    <label>ID Google Таблицы</label>
-    <input id="sheetId">
+    <label>Apps Script URL</label><input id="appsScriptUrl">
+    <label>ID Google Таблицы</label><input id="sheetId">
     <label>Лист Production</label><input id="productionSheet" value="Production">
     <label>Лист Products</label><input id="productsSheet" value="Products">
     <h4 style="margin-top:20px;">Типы продукции</h4>
@@ -127,31 +121,25 @@ function addProduct(){
   let price=parseFloat(document.getElementById('prodPrice').value)||0;
   if(!name) return;
   products.push({id:crypto.randomUUID(), name, price, synced:false});
-  save(KEYS.products,products);
-  renderProducts();
-  document.getElementById('prodName').value='';
-  document.getElementById('prodPrice').value='';
+  save(KEYS.products,products); renderProducts();
+  document.getElementById('prodName').value=''; document.getElementById('prodPrice').value='';
 }
 
 function delProduct(id){
   let prod = products.find(p=>p.id===id);
-  if (!prod) return;
-  if (confirm('Удалить этот продукт?')) {
+  if(!prod) return;
+  if(confirm('Удалить этот продукт?')){
     if(prod.synced && settings.appsScriptUrl && settings.sheetId){
+      console.log("Отправка удаления продукта:", prod.id);
       fetch(settings.appsScriptUrl,{
-        method:'POST',
-        headers:{'Content-Type':'text/plain;charset=UTF-8'},
+        method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
         body:JSON.stringify({
-          type:'deleteProduct',
-          spreadsheetId:settings.sheetId,
-          sheetName:settings.productsSheet||'Products',
-          productId:prod.id
+          type:'deleteProduct',spreadsheetId:settings.sheetId,
+          sheetName:settings.productsSheet||'Products',productId:prod.id
         })
-      });
+      }).then(r=>r.json()).then(d=>console.log("Ответ от GAS (deleteProduct):",d));
     }
-    products=products.filter(p=>p.id!==id);
-    save(KEYS.products,products);
-    renderProducts();
+    products=products.filter(p=>p.id!==id); save(KEYS.products,products); renderProducts();
   }
 }
 
@@ -162,8 +150,7 @@ function saveEntry(){
   let prod=products.find(p=>p.id==pid);
   let total=prod.price*qty;
   let entry={id:crypto.randomUUID(), date:todayISO(), productId:pid, name:prod.name, price:prod.price, qty, total, synced:false};
-  entries.push(entry); save(KEYS.entries,entries);
-  renderEntries();
+  entries.push(entry); save(KEYS.entries,entries); renderEntries();
   document.getElementById('qtyInput').value='';
 }
 
@@ -172,69 +159,48 @@ function delEntry(id){
   if(!entry) return;
   if(confirm('Удалить эту запись?')){
     if(entry.synced && settings.appsScriptUrl && settings.sheetId){
+      console.log("Отправка удаления записи:", entry.id);
       fetch(settings.appsScriptUrl,{
-        method:'POST',
-        headers:{'Content-Type':'text/plain;charset=UTF-8'},
+        method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
         body:JSON.stringify({
-          type:'deleteProduction',
-          spreadsheetId:settings.sheetId,
-          sheetName:settings.productionSheet||'Production',
-          entryId:entry.id
+          type:'deleteProduction',spreadsheetId:settings.sheetId,
+          sheetName:settings.productionSheet||'Production',entryId:entry.id
         })
-      });
+      }).then(r=>r.json()).then(d=>console.log("Ответ от GAS (deleteProduction):",d));
     }
-    entries=entries.filter(e=>e.id!==id);
-    save(KEYS.entries,entries);
-    renderEntries();
+    entries=entries.filter(e=>e.id!==id); save(KEYS.entries,entries); renderEntries();
   }
 }
 
 function syncProducts(){
   const unsynced=products.filter(p=>!p.synced);
-  if(!unsynced.length) return;
-  fetch(settings.appsScriptUrl,{
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=UTF-8'},
-    body:JSON.stringify({
-      type:'appendProducts',
-      spreadsheetId:settings.sheetId,
-      sheetName:settings.productsSheet||'Products',
-      products: unsynced.map(p=>[p.id,p.name,p.price])
-    })
-  }).then(r=>r.json()).then(data=>{
-    if(data.success){
-      unsynced.forEach(p=>p.synced=true);
-      save(KEYS.products,products);
-      renderProducts();
-    }
-  });
+  if(!unsynced.length){console.log("Нет новых продуктов"); return;}
+  const payload={type:'appendProducts',spreadsheetId:settings.sheetId,
+    sheetName:settings.productsSheet||'Products',
+    products:unsynced.map(p=>[p.id,p.name,p.price])};
+  console.log("Отправляем продукты:", payload);
+  fetch(settings.appsScriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(payload)})
+    .then(r=>r.json()).then(data=>{console.log("Ответ (appendProducts):",data);
+      if(data.success){unsynced.forEach(p=>p.synced=true);save(KEYS.products,products);renderProducts();}
+    });
 }
 
 function syncSheets(){
   const unsent=entries.filter(e=>!e.synced);
-  if(!unsent.length){return;}
-  fetch(settings.appsScriptUrl,{
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=UTF-8'},
-    body:JSON.stringify({
-      type:'appendProduction',
-      spreadsheetId:settings.sheetId,
-      sheetName:settings.productionSheet||'Production',
-      rows: unsent.map(e=>[e.id,new Date().toISOString(),e.date,e.productId,e.name,e.price,e.qty,e.total])
-    })
-  }).then(r=>r.json()).then(data=>{
-    if(data.success){
-      unsent.forEach(e=>e.synced=true);
-      save(KEYS.entries,entries);
-      renderEntries();
-    }
-  });
+  if(!unsent.length){console.log("Нет новых записей"); return;}
+  const payload={type:'appendProduction',spreadsheetId:settings.sheetId,
+    sheetName:settings.productionSheet||'Production',
+    rows:unsent.map(e=>[e.id,new Date().toISOString(),e.date,e.productId,e.name,e.price,e.qty,e.total])};
+  console.log("Отправляем записи:", payload);
+  fetch(settings.appsScriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(payload)})
+    .then(r=>r.json()).then(data=>{console.log("Ответ (appendProduction):",data);
+      if(data.success){unsent.forEach(e=>e.synced=true);save(KEYS.entries,entries);renderEntries();}
+    });
 }
 
 function syncAll(){
   if(!settings.appsScriptUrl||!settings.sheetId){alert('Укажите настройки Google Script');return;}
-  syncProducts();
-  syncSheets();
+  syncProducts(); syncSheets();
 }
 
 function toggleSettings(){
@@ -251,8 +217,7 @@ function toggleSettings(){
   });
 });
 
-renderProducts();
-renderEntries();
+renderProducts(); renderEntries();
 </script>
 </body>
 </html>

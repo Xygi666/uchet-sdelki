@@ -4,17 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Учет сделки</title>
-
-<!-- PWA -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2f6feb"/>
-
-<!-- Для iOS -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Учет сделки">
-<link rel="apple-touch-icon" href="icon-192.png">
-
 <style>
 body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f7f7f9; color:#1c1c1c;}
 header { padding:16px; background:#2f6feb; color:#fff; display:flex; justify-content:space-between; align-items:center;}
@@ -58,7 +47,7 @@ button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px 14px
     </div>
     <div class="row" style="margin-top:12px">
       <button class="primary" onclick="saveEntry()">Сохранить</button>
-      <button class="secondary" onclick="syncSheets()">Синхронизировать</button>
+      <button class="secondary" onclick="syncAirtable()">Синхронизировать</button>
     </div>
     <div class="muted" id="lastStatus"></div>
   </section>
@@ -71,145 +60,140 @@ button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px 14px
     </table>
   </section>
   <section class="card hidden" id="settingsCard">
-    <h3>Настройки</h3>
-    <label>Apps Script URL</label><input id="appsScriptUrl" placeholder="https://script.google.com/...">
-    <label>ID Google Таблицы</label><input id="sheetId" placeholder="1AbC...">
-    <label>Лист Production</label><input id="productionSheet" placeholder="Production" value="Production">
+    <h3>Настройки AirTable</h3>
+    <label>API Key</label><input id="airtableKey" placeholder="keyXXXXXXXXXXXXXX">
+    <label>Base ID</label><input id="airtableBase" placeholder="appXXXXXXXXXXXXXX">
+    <label>Таблица Products</label><input id="productsTable" value="Products">
+    <label>Таблица Production</label><input id="productionTable" value="Production">
     <div style="margin-top:12px;">
-      <button onclick="testSheetsConnection()" class="secondary">Проверить подключение</button>
+      <button onclick="testAirtableConnection()" class="secondary">Проверить подключение</button>
       <span id="testStatus" style="margin-left:10px; font-weight:600;"></span>
     </div>
-    <h4>Типы продукции</h4>
-    <div class="row">
-      <div style="flex:1"><input id="prodName" placeholder="Название"></div>
-      <div style="flex:1"><input id="prodPrice" type="number" placeholder="Цена ₽"></div>
-      <div><button class="primary" onclick="addProduct()">Добавить</button></div>
-    </div>
-    <table class="list"><thead><tr><th>Название</th><th class="right">Цена</th><th></th></tr></thead>
-      <tbody id="productsBody"></tbody></table>
   </section>
 </main>
+
 <script>
-const KEYS={products:'ppx_products',entries:'ppx_entries',settings:'ppx_settings'};
+const KEYS={products:'ppx_products',entries:'ppx_entries',settings:'ppx_airtable_settings'};
 let products=JSON.parse(localStorage.getItem(KEYS.products)||'[]');
 let entries=JSON.parse(localStorage.getItem(KEYS.entries)||'[]');
 let settings=JSON.parse(localStorage.getItem(KEYS.settings)||'{}');
+
 const fmt=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n||0);
-function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
-function todayISO(){let d=new Date(),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`}
-function isInMonth(dateISO){let d=new Date(dateISO),now=new Date();return d.getMonth()==now.getMonth()&&d.getFullYear()==now.getFullYear()}
+const todayISO=()=>{let d=new Date(),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;}
+const isInMonth=(dateISO)=>{let d=new Date(dateISO),now=new Date();return d.getMonth()==now.getMonth()&&d.getFullYear()==now.getFullYear();}
+const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+
+// --- AirTable API helpers ---
+function airtableURL(table){return `https://api.airtable.com/v0/${settings.airtableBase}/${encodeURIComponent(table)}`;}
+function airtableHeaders(){
+  return {Authorization: `Bearer ${settings.airtableKey}`, 'Content-Type':'application/json'};
+}
+
+async function fetchProductsFromAirtable(){
+  if(!settings.airtableKey||!settings.airtableBase) return;
+  const res=await fetch(airtableURL(settings.productsTable||'Products'), {headers: airtableHeaders()});
+  const data=await res.json();
+  products=data.records.map(r=>({id:r.id,name:r.fields.Name,price:r.fields.Price}));
+  save(KEYS.products, products);
+  renderProducts();
+}
+
+async function addProductionToAirtable(entry){
+  if(!settings.airtableKey||!settings.airtableBase) return;
+  const body={fields:{
+    Date: entry.date,
+    Product:[entry.productId],
+    Quantity: entry.qty,
+    Price: entry.price,
+    Total: entry.total
+  }};
+  const res=await fetch(airtableURL(settings.productionTable||'Production'), {
+    method:'POST',
+    headers: airtableHeaders(),
+    body: JSON.stringify(body)
+  });
+  if(res.ok){entry.synced=true; save(KEYS.entries,entries);}
+}
+
 function renderProducts(){
   let sel=document.getElementById('productSelect');
-  sel.innerHTML='';products.forEach(p=>{let o=document.createElement('option');o.value=p.id;o.textContent=`${p.name} — ${fmt(p.price)}`;sel.appendChild(o)});
-  let pb=document.getElementById('productsBody');pb.innerHTML='';
+  sel.innerHTML='';
   products.forEach(p=>{
-    let tr=document.createElement('tr');
-    tr.innerHTML=`<td>${p.name}</td><td class="right">${fmt(p.price)}</td>
-    <td><button class="danger" onclick="delProduct('${p.id}')">×</button></td>`;
-    pb.appendChild(tr)});
+    let o=document.createElement('option');
+    o.value=p.id;
+    o.textContent=`${p.name} — ${fmt(p.price)}`;
+    sel.appendChild(o);
+  });
 }
+
 function renderEntries(){
-  let body=document.getElementById('entriesBody');body.innerHTML='';let total=0;
-  let monthEntries=entries.filter(e=>isInMonth(e.date));
-  monthEntries.forEach(e=>{
+  let body=document.getElementById('entriesBody');body.innerHTML='';
+  let total=0;
+  entries.filter(e=>isInMonth(e.date)).forEach(e=>{
     total+=e.total;
     let tr=document.createElement('tr');
     tr.innerHTML=`<td>${e.date}</td><td>${e.name}</td><td class="right">${e.qty}</td><td class="right">${fmt(e.price)}</td><td class="right">${fmt(e.total)}</td><td><button class="danger" onclick="delEntry('${e.id}')">×</button></td>`;
-    body.appendChild(tr)});
+    body.appendChild(tr);
+  });
   document.getElementById('tableTotal').textContent=fmt(total);
   document.getElementById('monthTotal').textContent=fmt(total);
   const now=new Date();
-  document.getElementById('monthLabel').textContent= `За ${now.toLocaleString('ru-RU',{month:'long',year:'numeric'})}`;
+  document.getElementById('monthLabel').textContent=`За ${now.toLocaleString('ru-RU',{month:'long',year:'numeric'})}`;
 }
-function addProduct(){
-  let n=document.getElementById('prodName').value.trim();
-  let pr=parseFloat(document.getElementById('prodPrice').value)||0;
-  if(!n)return; products.push({id:crypto.randomUUID(),name:n,price:pr});
-  save(KEYS.products,products);document.getElementById('prodName').value='';document.getElementById('prodPrice').value='';renderProducts();
-}
-function delProduct(id){products=products.filter(p=>p.id!=id);save(KEYS.products,products);renderProducts();}
+
 function saveEntry(){
   let pid=document.getElementById('productSelect').value;
   let qty=parseInt(document.getElementById('qtyInput').value)||0;
   if(!pid||qty<=0) return;
   let p=products.find(x=>x.id==pid);
   let total=p.price*qty;
-  let e={id:crypto.randomUUID(),ts:new Date().toISOString(),date:todayISO(),productId:p.id,name:p.name,price:p.price,qty:qty,total:total,synced:false};
-  entries.push(e);save(KEYS.entries,entries);
-  renderEntries();document.getElementById('qtyInput').value='';
+  let e={id:crypto.randomUUID(),date:todayISO(),productId:p.id,name:p.name,price:p.price,qty:qty,total:total,synced:false};
+  entries.push(e); save(KEYS.entries,entries);
+  renderEntries();
+  document.getElementById('qtyInput').value='';
   document.getElementById('lastStatus').textContent='Сохранено локально';
-  if(settings.appsScriptUrl&&settings.sheetId){sendToSheets([e])}
+  addProductionToAirtable(e);
 }
-function delEntry(id){entries=entries.filter(x=>x.id!=id);save(KEYS.entries,entries);renderEntries();}
-function toggleSettings(){
-  let c=document.getElementById('settingsCard');c.classList.toggle('hidden');
-  document.getElementById('appsScriptUrl').value=settings.appsScriptUrl||'';
-  document.getElementById('sheetId').value=settings.sheetId||'';
-  document.getElementById('productionSheet').value=settings.productionSheet||'Production';
-  renderProducts();
-}
-document.getElementById('appsScriptUrl').addEventListener('change',e=>{settings.appsScriptUrl=e.target.value;save(KEYS.settings,settings)});
-document.getElementById('sheetId').addEventListener('change',e=>{settings.sheetId=e.target.value;save(KEYS.settings,settings)});
-document.getElementById('productionSheet').addEventListener('change',e=>{settings.productionSheet=e.target.value;save(KEYS.settings,settings)});
-function syncSheets(){
-  let unsent=entries.filter(e=>!e.synced);
-  if(unsent.length&&settings.appsScriptUrl&&settings.sheetId){sendToSheets(unsent)}
-}
-function sendToSheets(list){
-  fetch(settings.appsScriptUrl,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      type:'appendProduction',
-      spreadsheetId:settings.sheetId,
-      sheetName:settings.productionSheet||'Production',
-      rows:list.map(e=>[e.ts,e.date,e.productId,e.name,e.price,e.qty,e.total])
-    })
-  }).then(r=>r.json())
-    .then(d=>{
-      if(d.success){
-        list.forEach(e=>e.synced=true);save(KEYS.entries,entries);renderEntries();
-        document.getElementById('lastStatus').textContent='Синхронизировано';
-      }
-    });
-}
-// Проверка подключения Google Sheets
-function testSheetsConnection(){
-  const url=document.getElementById('appsScriptUrl').value.trim();
-  const sheetId=document.getElementById('sheetId').value.trim();
-  const statusEl=document.getElementById('testStatus');
-  if(!url||!sheetId){statusEl.textContent='Введите URL и ID таблицы';statusEl.style.color='red';return;}
-  statusEl.textContent='Проверяем...';statusEl.style.color='black';
-  fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      type:'appendProduction',
-      spreadsheetId:sheetId,
-      sheetName:'Production',
-      rows:[]
-    })
-  })
-    .then(resp=>resp.json())
-    .then(data=>{
-      if(data.success){
-        statusEl.textContent='Подключение успешно';statusEl.style.color='green';
-      }else{
-        statusEl.textContent=`Ошибка: ${data.error||'неизвестная'}`;statusEl.style.color='red';
-      }
-    })
-    .catch(err=>{
-      statusEl.textContent=`Ошибка: ${err.message}`;statusEl.style.color='red';
-    });
-}
-renderProducts();renderEntries();
 
-// Регистрация Service Worker
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
-      .then(registration => console.log('SW зарегистрирован:', registration.scope))
-      .catch(error => console.log('Ошибка регистрации SW:', error));
-  });
+function delEntry(id){
+  entries=entries.filter(x=>x.id!=id);
+  save(KEYS.entries,entries);
+  renderEntries();
 }
+
+function toggleSettings(){
+  let c=document.getElementById('settingsCard');
+  c.classList.toggle('hidden');
+  document.getElementById('airtableKey').value=settings.airtableKey||'';
+  document.getElementById('airtableBase').value=settings.airtableBase||'';
+  document.getElementById('productsTable').value=settings.productsTable||'Products';
+  document.getElementById('productionTable').value=settings.productionTable||'Production';
+}
+
+document.getElementById('airtableKey').addEventListener('change',e=>{settings.airtableKey=e.target.value; save(KEYS.settings,settings);});
+document.getElementById('airtableBase').addEventListener('change',e=>{settings.airtableBase=e.target.value; save(KEYS.settings,settings);});
+document.getElementById('productsTable').addEventListener('change',e=>{settings.productsTable=e.target.value; save(KEYS.settings,settings);});
+document.getElementById('productionTable').addEventListener('change',e=>{settings.productionTable=e.target.value; save(KEYS.settings,settings);});
+
+function syncAirtable(){
+  let unsent=entries.filter(e=>!e.synced);
+  unsent.forEach(addProductionToAirtable);
+}
+
+async function testAirtableConnection(){
+  const statusEl=document.getElementById('testStatus');
+  if(!settings.airtableKey||!settings.airtableBase){statusEl.textContent='Введите API Key и Base ID'; statusEl.style.color='red'; return;}
+  statusEl.textContent='Проверка...'; statusEl.style.color='black';
+  try{
+    const res=await fetch(airtableURL(settings.productsTable||'Products'), {headers: airtableHeaders()});
+    if(res.ok){statusEl.textContent='Подключение успешно'; statusEl.style.color='green'; fetchProductsFromAirtable();}
+    else{statusEl.textContent='Ошибка подключения'; statusEl.style.color='red';}
+  }catch(e){statusEl.textContent='Ошибка: '+e.message; statusEl.style.color='red';}
+}
+
+fetchProductsFromAirtable();
+renderProducts();
+renderEntries();
 </script>
 </body>
 </html>

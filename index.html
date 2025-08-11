@@ -2,29 +2,19 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Учет сделки</title>
-
-<!-- PWA манифест -->
-<link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#2f6feb" />
-
-<!-- Мета-теги для iOS -->
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<meta name="apple-mobile-web-app-title" content="Учет сделки" />
-<link rel="apple-touch-icon" href="icon-192.png" />
-
-<!-- Остальные мета-теги -->
-<meta name="description" content="Приложение для учета производственных сделок" />
-<meta name="keywords" content="учет, производство, заработок, сделки" />
-
-<!-- Ваши стили -->
-<style>
-...ваши стили...
-</style>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Учет сделки</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2f6feb"/>
+
+<!-- Для iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Учет сделки">
+<link rel="apple-touch-icon" href="icon-192.png">
+
 <style>
 body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f7f7f9; color:#1c1c1c;}
 header { padding:16px; background:#2f6feb; color:#fff; display:flex; justify-content:space-between; align-items:center;}
@@ -129,8 +119,7 @@ function renderEntries(){
   document.getElementById('tableTotal').textContent=fmt(total);
   document.getElementById('monthTotal').textContent=fmt(total);
   const now=new Date();
-  document.getElementById('monthLabel').textContent=
-    `За ${now.toLocaleString('ru-RU',{month:'long',year:'numeric'})}`;
+  document.getElementById('monthLabel').textContent= `За ${now.toLocaleString('ru-RU',{month:'long',year:'numeric'})}`;
 }
 function addProduct(){
   let n=document.getElementById('prodName').value.trim();
@@ -212,7 +201,15 @@ function testSheetsConnection(){
     });
 }
 renderProducts();renderEntries();
+
+// Регистрация Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(registration => console.log('SW зарегистрирован:', registration.scope))
+      .catch(error => console.log('Ошибка регистрации SW:', error));
+  });
+}
 </script>
 </body>
 </html>
-

@@ -61,7 +61,7 @@ button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px 14px
   </section>
   <section class="card hidden" id="settingsCard">
     <h3>Настройки AirTable</h3>
-    <label>API Key / Token</label><input id="airtableKey" placeholder="patXXXXXXXXXXXXXX">
+    <label>API Token</label><input id="airtableKey" placeholder="patXXXXXXXXXXXXXX">
     <label>Base ID</label><input id="airtableBase" placeholder="appXXXXXXXXXXXXXX">
     <label>Таблица Products</label><input id="productsTable" value="Products">
     <label>Таблица Production</label><input id="productionTable" value="Production">
@@ -69,6 +69,13 @@ button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px 14px
       <button onclick="testAirtableConnection()" class="secondary">Проверить подключение</button>
       <span id="testStatus" style="margin-left:10px; font-weight:600;"></span>
     </div>
+    <h4 style="margin-top:20px;">Типы продукции</h4>
+    <div class="row">
+      <div style="flex:1"><input id="prodName" placeholder="Название продукции"></div>
+      <div style="flex:1"><input id="prodPrice" type="number" placeholder="Цена ₽"></div>
+      <div><button class="primary" onclick="addProductToAirtable()">Добавить</button></div>
+    </div>
+    <ul id="productsList" style="margin-top:10px; padding-left:20px; font-size:14px;"></ul>
   </section>
 </main>
 
@@ -83,28 +90,20 @@ const todayISO=()=>{let d=new Date(),z=n=>String(n).padStart(2,'0');return `${d.
 const isInMonth=(dateISO)=>{let d=new Date(dateISO),now=new Date();return d.getMonth()==now.getMonth()&&d.getFullYear()==now.getFullYear();}
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 
-// --- AirTable API helpers ---
 function airtableURL(table){return `https://api.airtable.com/v0/${settings.airtableBase}/${encodeURIComponent(table)}`;}
-function airtableHeaders(){
-  return {Authorization: `Bearer ${settings.airtableKey}`, 'Content-Type':'application/json'};
-}
+function airtableHeaders(){return {Authorization: `Bearer ${settings.airtableKey}`, 'Content-Type':'application/json'};}
 
-// Обновлённая функция с обработкой ошибок
 async function fetchProductsFromAirtable(){
   if(!settings.airtableKey||!settings.airtableBase) return;
   try {
     const res = await fetch(airtableURL(settings.productsTable||'Products'), {headers: airtableHeaders()});
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Ошибка API Airtable: ${res.status} ${res.statusText} - ${errorText}`);
-    }
+    if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
-    if (!data.records) throw new Error('Нет поля records в ответе API');
     products = data.records.map(r=>({id:r.id,name:r.fields.Name,price:r.fields.Price}));
     save(KEYS.products, products);
     renderProducts();
+    renderProductsListInSettings();
   } catch(e) {
-    console.error('Ошибка при загрузке продуктов:', e);
     document.getElementById('lastStatus').textContent = `Ошибка загрузки продуктов: ${e.message}`;
   }
 }
@@ -118,22 +117,31 @@ async function addProductionToAirtable(entry){
     Price: entry.price,
     Total: entry.total
   }};
-  const res=await fetch(airtableURL(settings.productionTable||'Production'), {
+  await fetch(airtableURL(settings.productionTable||'Production'), {
     method:'POST',
     headers: airtableHeaders(),
     body: JSON.stringify(body)
-  });
-  if(res.ok){entry.synced=true; save(KEYS.entries,entries);}
+  }).then(res=>{if(res.ok){entry.synced=true; save(KEYS.entries,entries);}});
 }
 
 function renderProducts(){
-  let sel=document.getElementById('productSelect');
+  const sel=document.getElementById('productSelect');
   sel.innerHTML='';
   products.forEach(p=>{
     let o=document.createElement('option');
     o.value=p.id;
     o.textContent=`${p.name} — ${fmt(p.price)}`;
     sel.appendChild(o);
+  });
+}
+
+function renderProductsListInSettings(){
+  const listEl=document.getElementById('productsList');
+  listEl.innerHTML='';
+  products.forEach(p=>{
+    const li=document.createElement('li');
+    li.textContent=`${p.name} — ${fmt(p.price)}`;
+    listEl.appendChild(li);
   });
 }
 
@@ -173,12 +181,13 @@ function delEntry(id){
 }
 
 function toggleSettings(){
-  let c=document.getElementById('settingsCard');
+  const c=document.getElementById('settingsCard');
   c.classList.toggle('hidden');
   document.getElementById('airtableKey').value=settings.airtableKey||'';
   document.getElementById('airtableBase').value=settings.airtableBase||'';
   document.getElementById('productsTable').value=settings.productsTable||'Products';
   document.getElementById('productionTable').value=settings.productionTable||'Production';
+  renderProductsListInSettings();
 }
 
 document.getElementById('airtableKey').addEventListener('change',e=>{settings.airtableKey=e.target.value; save(KEYS.settings,settings);});
@@ -187,19 +196,39 @@ document.getElementById('productsTable').addEventListener('change',e=>{settings.
 document.getElementById('productionTable').addEventListener('change',e=>{settings.productionTable=e.target.value; save(KEYS.settings,settings);});
 
 function syncAirtable(){
-  let unsent=entries.filter(e=>!e.synced);
-  unsent.forEach(addProductionToAirtable);
+  entries.filter(e=>!e.synced).forEach(addProductionToAirtable);
 }
 
 async function testAirtableConnection(){
   const statusEl=document.getElementById('testStatus');
-  if(!settings.airtableKey||!settings.airtableBase){statusEl.textContent='Введите API Key и Base ID'; statusEl.style.color='red'; return;}
+  if(!settings.airtableKey||!settings.airtableBase){statusEl.textContent='Введите API Token и Base ID'; statusEl.style.color='red'; return;}
   statusEl.textContent='Проверка...'; statusEl.style.color='black';
   try{
     const res=await fetch(airtableURL(settings.productsTable||'Products'), {headers: airtableHeaders()});
     if(res.ok){statusEl.textContent='Подключение успешно'; statusEl.style.color='green'; fetchProductsFromAirtable();}
     else{statusEl.textContent='Ошибка подключения'; statusEl.style.color='red';}
   }catch(e){statusEl.textContent='Ошибка: '+e.message; statusEl.style.color='red';}
+}
+
+async function addProductToAirtable(){
+  const name=document.getElementById('prodName').value.trim();
+  const price=parseFloat(document.getElementById('prodPrice').value)||0;
+  if(!name){alert('Введите название продукта');return;}
+  if(!settings.airtableKey||!settings.airtableBase){alert('Сначала укажите настройки AirTable');return;}
+  try {
+    const body={fields:{"Name":name,"Price":price}};
+    const res=await fetch(airtableURL(settings.productsTable||'Products'), {
+      method:'POST', headers: airtableHeaders(), body: JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error(await res.text());
+    const data=await res.json();
+    products.push({id:data.id, name, price});
+    save(KEYS.products, products);
+    renderProducts();
+    renderProductsListInSettings();
+    document.getElementById('prodName').value='';
+    document.getElementById('prodPrice').value='';
+  } catch(e){alert(`Ошибка при добавлении продукта: ${e.message}`);}
 }
 
 fetchProductsFromAirtable();

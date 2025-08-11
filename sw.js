@@ -10,16 +10,20 @@ const urlsToCache = [
 self.addEventListener('install', e=>{
   e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(urlsToCache)).then(()=>self.skipWaiting()));
 });
+
 self.addEventListener('activate', e=>{
   e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))) .then(()=>self.clients.claim()));
 });
+
 self.addEventListener('fetch', e=>{
   if(e.request.method!=='GET') return;
   e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{
     if(resp && resp.status===200 && resp.type==='basic'){
-      let respClone = resp.clone();
-      caches.open(CACHE_NAME).then(c=>c.put(e.request, respClone));
+      let clone=resp.clone();
+      caches.open(CACHE_NAME).then(c=>c.put(e.request,clone));
     }
     return resp;
-  }).catch(()=> e.request.mode==='navigate' ? caches.match('/uchet-sdelki/index.html') : undefined )));
+  }).catch(()=>{
+    if(e.request.mode==='navigate') return caches.match('/uchet-sdelki/index.html');
+  })));
 });

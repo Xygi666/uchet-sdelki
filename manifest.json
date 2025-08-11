@@ -1,14 +1,15 @@
 {
   "name": "Учет сделки",
-  "short_name": "Учет сделки",
-  "description": "Приложение для учета производственных сделок с автоподсчетом заработка",
-  "start_url": "/",
+  "short_name": "Учет",
+  "description": "Приложение для учета производственных сделок с автоподсчетом заработка и синхронизацией",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#f7f7f9",
   "theme_color": "#2f6feb",
-  "orientation": "portrait-primary",
-  "categories": ["business", "productivity"],
-  "lang": "ru",
+  "categories": ["business", "productivity", "finance"],
   "icons": [
     {
       "src": "icon-192.png",

@@ -61,7 +61,7 @@ button.secondary{ background:#eef2ff; color:#2f4feb; border:0; padding:10px 14px
   </section>
   <section class="card hidden" id="settingsCard">
     <h3>Настройки AirTable</h3>
-    <label>API Key</label><input id="airtableKey" placeholder="keyXXXXXXXXXXXXXX">
+    <label>API Key / Token</label><input id="airtableKey" placeholder="patXXXXXXXXXXXXXX">
     <label>Base ID</label><input id="airtableBase" placeholder="appXXXXXXXXXXXXXX">
     <label>Таблица Products</label><input id="productsTable" value="Products">
     <label>Таблица Production</label><input id="productionTable" value="Production">
@@ -89,13 +89,24 @@ function airtableHeaders(){
   return {Authorization: `Bearer ${settings.airtableKey}`, 'Content-Type':'application/json'};
 }
 
+// Обновлённая функция с обработкой ошибок
 async function fetchProductsFromAirtable(){
   if(!settings.airtableKey||!settings.airtableBase) return;
-  const res=await fetch(airtableURL(settings.productsTable||'Products'), {headers: airtableHeaders()});
-  const data=await res.json();
-  products=data.records.map(r=>({id:r.id,name:r.fields.Name,price:r.fields.Price}));
-  save(KEYS.products, products);
-  renderProducts();
+  try {
+    const res = await fetch(airtableURL(settings.productsTable||'Products'), {headers: airtableHeaders()});
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Ошибка API Airtable: ${res.status} ${res.statusText} - ${errorText}`);
+    }
+    const data = await res.json();
+    if (!data.records) throw new Error('Нет поля records в ответе API');
+    products = data.records.map(r=>({id:r.id,name:r.fields.Name,price:r.fields.Price}));
+    save(KEYS.products, products);
+    renderProducts();
+  } catch(e) {
+    console.error('Ошибка при загрузке продуктов:', e);
+    document.getElementById('lastStatus').textContent = `Ошибка загрузки продуктов: ${e.message}`;
+  }
 }
 
 async function addProductionToAirtable(entry){

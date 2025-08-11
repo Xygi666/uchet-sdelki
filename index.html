@@ -85,7 +85,6 @@ let entries=JSON.parse(localStorage.getItem(KEYS.entries)||'[]');
 let settings=JSON.parse(localStorage.getItem(KEYS.settings)||'{}');
 const fmt=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n);
 const todayISO=()=>new Date().toISOString().split('T')[0];
-
 function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
 function isThisMonth(date){
   const d=new Date(date), now=new Date();
@@ -93,17 +92,23 @@ function isThisMonth(date){
 }
 
 function renderProducts(){
-  const sel=document.getElementById('productSelect'); sel.innerHTML='';
+  const sel=document.getElementById('productSelect'); 
+  sel.innerHTML='';
   products.forEach(p=>{
     let opt=document.createElement('option');
-    opt.value=p.id; opt.textContent=`${p.name} — ${fmt(p.price)}`;
+    opt.value=p.id; 
+    opt.textContent=`${p.name} — ${fmt(p.price)}`;
     sel.appendChild(opt);
   });
-  const tb=document.getElementById('productsBody'); tb.innerHTML='';
+  const tb=document.getElementById('productsBody'); 
+  tb.innerHTML='';
   products.forEach(p=>{
     let tr=document.createElement('tr');
-    tr.innerHTML=`<td>${p.name}</td><td class="right">${fmt(p.price)}</td>
-                  <td><span class="danger" onclick="delProduct('${p.id}')">×</span></td>`;
+    tr.innerHTML=`
+      <td>${p.name}</td>
+      <td class="right">${fmt(p.price)}</td>
+      <td class="right"><button class="danger" onclick="delProduct('${p.id}')">×</button></td>
+    `;
     tb.appendChild(tr);
   });
 }
@@ -136,6 +141,7 @@ function addProduct(){
 }
 
 function delProduct(id){
+  if (!confirm('Удалить этот продукт?')) return;
   products=products.filter(p=>p.id!==id);
   save(KEYS.products,products);
   renderProducts();

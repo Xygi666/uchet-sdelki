@@ -165,30 +165,56 @@ function delEntry(id){
   save(KEYS.entries,entries); renderEntries();
 }
 
+// Обновлённая функция с text/plain для обхода preflight
 function syncSheets(){
-  const unsent=entries.filter(e=>!e.synced);
-  if(!unsent.length) {document.getElementById('lastStatus').textContent='Нет данных для синхронизации'; return;}
-  if(!settings.appsScriptUrl||!settings.sheetId){alert('Укажите настройки Google Script'); return;}
-  fetch(settings.appsScriptUrl,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      type:'appendProduction',
-      spreadsheetId:settings.sheetId,
-      sheetName:settings.productionSheet||'Production',
-      rows:unsent.map(e=>[new Date().toISOString(),e.date,e.productId,e.name,e.price,e.qty,e.total])
+  const unsent = entries.filter(e => !e.synced);
+  if (!unsent.length) {
+    document.getElementById('lastStatus').textContent = 'Нет данных для синхронизации';
+    return;
+  }
+  if (!settings.appsScriptUrl || !settings.sheetId) {
+    alert('Укажите настройки Google Script');
+    return;
+  }
+
+  fetch(settings.appsScriptUrl, {
+    method: 'POST',
+    mode: 'cors',
+    headers: {
+      'Content-Type': 'text/plain;charset=UTF-8'
+    },
+    body: JSON.stringify({
+      type: 'appendProduction',
+      spreadsheetId: settings.sheetId,
+      sheetName: settings.productionSheet || 'Production',
+      rows: unsent.map(e => [
+        new Date().toISOString(),
+        e.date,
+        e.productId,
+        e.name,
+        e.price,
+        e.qty,
+        e.total
+      ])
     })
-  }).then(r=>r.json()).then(d=>{
-    if(d.success){
-      unsent.forEach(e=>e.synced=true);
-      save(KEYS.entries,entries);
+  })
+  .then(response => {
+    if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    return response.json();
+  })
+  .then(data => {
+    if (data.success) {
+      unsent.forEach(e => e.synced = true);
+      save(KEYS.entries, entries);
       renderEntries();
-      document.getElementById('lastStatus').textContent='Синхронизировано с Google Таблицей';
+      document.getElementById('lastStatus').textContent = 'Синхронизировано с Google Таблицей';
     } else {
-      document.getElementById('lastStatus').textContent='Ошибка синхронизации';
+      throw new Error(data.error || 'Ошибка синхронизации');
     }
-  }).catch(()=>{
-    document.getElementById('lastStatus').textContent='Нет соединения с Интернетом';
+  })
+  .catch(err => {
+    console.error('Ошибка синхронизации:', err);
+    document.getElementById('lastStatus').textContent = 'Ошибка: ' + err.message;
   });
 }
 
